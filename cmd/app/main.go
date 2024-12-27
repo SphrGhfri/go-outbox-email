@@ -2,21 +2,22 @@ package main
 
 import (
 	"log"
+	"outbox/config"
 	"outbox/customer"
 	"outbox/database"
 	"outbox/shared"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("loading env file: ", err)
+	config, err := config.LoadConfig("../../.env")
+	if err != nil {
+		log.Println("loading config file: ", err)
 	}
 
-	db, err := database.NewConnection()
+	db, err := database.NewConnection(*config)
 	if err != nil {
 		log.Fatal("error connecting to db")
 	}

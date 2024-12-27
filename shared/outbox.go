@@ -2,11 +2,11 @@ package shared
 
 import (
 	"encoding/json"
-	"github.com/streadway/amqp"
+	"log"
+
+	"github.com/nats-io/nats.go"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
-	"log"
-	"time"
 )
 
 type OutBoxMessage struct {
@@ -17,9 +17,9 @@ type OutBoxMessage struct {
 }
 
 type OutboxProcesser struct {
-	DB      *gorm.DB
-	Channel *amqp.Channel
-	Queue   amqp.Queue
+	DB        *gorm.DB
+	JSContext nats.JetStreamContext
+	Subject   string
 }
 
 func (p *OutboxProcesser) HandleOutboxMessage() {
@@ -68,15 +68,6 @@ func (p *OutboxProcesser) HandleOutboxMessage() {
 }
 
 func (p *OutboxProcesser) publishMessage(body []byte) error {
-	return p.Channel.Publish(
-		"",
-		p.Queue.Name,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Timestamp:   time.Now(),
-			Body:        body,
-		},
-	)
+	_, err := p.JSContext.Publish(p.Subject, body)
+	return err
 }

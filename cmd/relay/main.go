@@ -1,50 +1,51 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
-	"github.com/robfig/cron/v3"
-	"io"
 	"log"
 	"os"
 	"os/signal"
+	"outbox/config"
 	"outbox/database"
 	"outbox/queue"
 	"outbox/shared"
 	"syscall"
+
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("loading env file: ", err)
+	config, err := config.LoadConfig("../../.env")
+	if err != nil {
+		log.Println("loading conf file: ", err)
 	}
 
-	db, err := database.NewConnection()
+	// 1. Connect to Postgres
+	db, err := database.NewConnection(*config)
 	if err != nil {
 		log.Fatal("error connecting to db")
 	}
 
+	// 2. Connect to NATS
 	conn, err := queue.CreateConnection()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer closeConnection(conn)
+	defer conn.Drain() // Gracefully close on exit
 
-	ch, err := queue.CreateChannel(conn)
+	// 3. Create JetStream context
+	js, err := queue.CreateJetStreamContext(conn)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer closeConnection(ch)
 
-	q, err := ch.QueueDeclare(
-		"outbox",
-		false, false, false, false, nil)
-
+	// 4. Initialize your Outbox Processor with JetStream
 	jobProcessor := shared.OutboxProcesser{
-		DB:      db,
-		Channel: ch,
-		Queue:   q,
+		DB:        db,
+		JSContext: js,
+		Subject:   "outbox.created", // or any subject pattern you want
 	}
 
+	// 5. Set up cron to run every 10s
 	c := cron.New()
 	_, err = c.AddFunc("@every 10s", jobProcessor.HandleOutboxMessage)
 	if err != nil {
@@ -54,15 +55,8 @@ func main() {
 	c.Start()
 	defer c.Stop()
 
-	// Wait for terminate signal
+	// 6. Wait for terminate signal
 	kill := make(chan os.Signal, 1)
 	signal.Notify(kill, syscall.SIGINT, syscall.SIGTERM)
 	<-kill
-}
-
-func closeConnection(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		log.Println(err)
-	}
 }

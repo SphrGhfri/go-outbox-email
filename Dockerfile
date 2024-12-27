@@ -1,21 +1,32 @@
-FROM golang:1.14-alpine as builder
-RUN apk add --no-cache dpkg gcc git musl-dev openssh
-
+# ------------------------------------------
+# 1) Builder Stage
+# ------------------------------------------
+FROM golang:1.23-alpine3.19 AS builder
 WORKDIR /app
-COPY go.mod .
-COPY go.sum .
+
+# Copy module files first (to cache 'go mod download')
+COPY go.mod go.sum ./
 RUN go mod download
+
+# Copy the rest of the source
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -v -installsuffix cgo -o app ./cmd/app
-RUN CGO_ENABLED=0 GOOS=linux go build -a -v -installsuffix cgo -o relay ./cmd/relay
-RUN CGO_ENABLED=0 GOOS=linux go build -a -v -installsuffix cgo -o worker ./cmd/worker
+# Build the three binaries
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o app    ./cmd/app
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o relay  ./cmd/relay
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o worker ./cmd/worker
 
+# ------------------------------------------
+# 2) Final Stage
+# ------------------------------------------
+FROM alpine:3.19
+WORKDIR /app
 
-FROM alpine:latest
+# Copy compiled binaries from builder
+COPY --from=builder /app/app    .
+COPY --from=builder /app/relay  .
+COPY --from=builder /app/worker .
 
-COPY --from=builder /app/app ./
-COPY --from=builder /app/relay ./
-COPY --from=builder /app/worker ./
-
+# Default command
 CMD ["./app"]
+    

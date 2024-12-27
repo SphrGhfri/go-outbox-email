@@ -11,14 +11,21 @@ services:
     ports:
       - "5444:5432"
 
-  rabbitmq:
-    image: rabbitmq:3.8-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_PASS: "123456"
-      RABBITMQ_DEFAULT_USER: "outbox"
+  nats:
+    image: nats:2.9-alpine
+    container_name: nats_server
+    command: [
+      "-js",          
+      "--store_dir",  
+      "/data"
+    ]
     ports:
-      - "56720:5672"
-      - "8081:15672"
+      - "4222:4222"   
+    volumes:
+      - nats_data:/data
+
+volumes:
+  nats_data:
 
 networks:
   default:

@@ -2,14 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/joho/godotenv"
-	"gorm.io/datatypes"
-	"io"
 	"log"
 	"os"
 	"os/signal"
 	"outbox/queue"
 	"syscall"
+
+	"github.com/nats-io/nats.go"
+	"gorm.io/datatypes"
 )
 
 type OutboxEvent struct {
@@ -19,59 +19,42 @@ type OutboxEvent struct {
 }
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("loading env file: ", err)
-	}
-
-	conn, err := queue.CreateConnection()
+	// 1. Connect to NATS
+	nc, err := queue.CreateConnection()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer closeConnection(conn)
+	defer nc.Drain()
 
-	ch, err := queue.CreateChannel(conn)
+	// 2. Create JetStream context
+	js, err := queue.CreateJetStreamContext(nc)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer closeConnection(ch)
 
-	q, err := ch.QueueDeclare(
-		"outbox",
-		false, false, false, false, nil)
-
-	messages, err := ch.Consume(
-		q.Name,
-		"",    // consumer
-		true,  // auto-ack
-		false, // exclusive
-		false, // no-local
-		false, // no-wait
-		nil,   // args
-	)
-
-	// Run in background
-	go func() {
-		log.Printf("Comsuming queue [%s] \n", q.Name)
-		for m := range messages {
-			var evt OutboxEvent
-			if err := json.Unmarshal(m.Body, &evt); err != nil {
-				log.Println("Handle message error: ", string(m.Body))
-				log.Println("ERR:", err)
-				continue
-			}
-			log.Printf("Handling [%s] - Payload: '%s'", evt.EventName, evt.Payload)
+	// 3. Subscribe to the stream/subject
+	sub, err := js.Subscribe("outbox.*", func(msg *nats.Msg) {
+		var evt OutboxEvent
+		if err := json.Unmarshal(msg.Data, &evt); err != nil {
+			log.Println("Handle message error: ", string(msg.Data))
+			log.Println("ERR:", err)
+			// NACK or Ack?
+			_ = msg.Nak()
+			return
 		}
-	}()
+		log.Printf("Handling [%s] - Payload: '%s'", evt.EventName, evt.Payload)
 
-	// Wait for terminate signal
+		// If success, Ack the message
+		_ = msg.Ack()
+	}, nats.Durable("WORKER"), nats.ManualAck())
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sub.Unsubscribe()
+
+	// 4. Wait for signals
 	kill := make(chan os.Signal, 1)
 	signal.Notify(kill, syscall.SIGINT, syscall.SIGTERM)
 	<-kill
-}
-
-func closeConnection(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		log.Println(err)
-	}
 }
