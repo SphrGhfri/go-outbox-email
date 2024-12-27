@@ -9,6 +9,7 @@ service NotificationService {
 message AddNotificationRequest {
   string eventName = 1 [json_name="eventName"]; 
   string userId = 2 [json_name="userId"]; 
+  string message =3 [json_name="message"];
 }
 
 message AddNotificationResponse {

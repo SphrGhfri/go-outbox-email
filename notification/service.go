@@ -32,8 +32,8 @@ func (s *Service) AddNotification(ctx context.Context, req *pb.AddNotificationRe
 		EventName:   req.EventName,
 		UserID:      userUUID,
 		Name:        "name",
-		Email:       "example@emali.com",
-		Message:     "test message",
+		Email:       "sphr.ghfri@gmail.com",
+		Message:     req.Message,
 		IsProcessed: false,
 	}
 	if err := s.DB.Create(&msg).Error; err != nil {
