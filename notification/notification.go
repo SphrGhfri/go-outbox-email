@@ -1,16 +1,17 @@
-package customer
+package notification
 
 import (
 	"encoding/json"
+	"outbox/shared"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
-	"outbox/shared"
-	"time"
 )
 
-type Customer struct {
+type Notification struct {
 	ID        string `json:"id" gorm:"id,primarykey"`
 	Email     string `json:"email"`
 	Name      string `json:"name"`
@@ -24,31 +25,31 @@ type Handler struct {
 
 func (h *Handler) Add(c *fiber.Ctx) error {
 
-	var customer Customer
-	if err := c.BodyParser(&customer); err != nil {
+	var notification Notification
+	if err := c.BodyParser(&notification); err != nil {
 		return err
 	}
-	customer.ID = uuid.NewString()
-	customer.CreatedAt = time.Now()
+	notification.ID = uuid.NewString()
+	notification.CreatedAt = time.Now()
 
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		b, err := json.Marshal(customer)
+		b, err := json.Marshal(notification)
 		if err != nil {
 			return err
 		}
 
-		customerCreatedEvent := shared.OutBoxMessage{
+		notificationCreatedEvent := shared.OutBoxMessage{
 			ID:          uuid.NewString(),
-			EventName:   "CustomerCreated",
+			EventName:   "NotificationCreated",
 			Payload:     datatypes.JSON(b),
 			IsProcessed: false,
 		}
 
-		if err := tx.FirstOrCreate(&customer).Error; err != nil {
+		if err := tx.FirstOrCreate(&notification).Error; err != nil {
 			return err
 		}
 
-		if err := tx.Create(&customerCreatedEvent).Error; err != nil {
+		if err := tx.Create(&notificationCreatedEvent).Error; err != nil {
 			return err
 		}
 
