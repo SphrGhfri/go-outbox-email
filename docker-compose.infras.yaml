@@ -1,0 +1,29 @@
+services:
+
+  db:
+    image: postgres:14.8
+    environment:
+      POSTGRES_DB: outbox-nats
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: "123456"
+    ports:
+      - "5444:5432"
+
+  nats:
+    image: nats:2.9-alpine
+    container_name: nats_server
+    command: [
+      "-js",          
+      "--store_dir",  
+      "/data"
+    ]
+    ports:
+      - "4222:4222"   
+    volumes:
+      - nats_data:/data
+
+volumes:
+  nats_data:
+
+networks:
+  default:

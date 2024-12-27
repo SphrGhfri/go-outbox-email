@@ -1,0 +1,38 @@
+services:
+
+  app:
+    image: outbox-nats
+    container_name: outbox-nats-app
+    restart: on-failure
+    build:
+      context: .
+    env_file:
+      - .env
+    ports:
+      - "50051:50051"
+    command: ["./app"]
+
+  relay:
+    image: outbox-nats
+    container_name: outbox-nats-relay
+    restart: on-failure
+    build:
+      context: .
+    env_file:
+      - .env
+    command: [ "./relay" ]
+
+  worker:
+    image: outbox-nats
+    container_name: outbox-nats-worker
+    restart: on-failure
+    build:
+      context: .
+    env_file:
+      - .env
+    volumes:
+      - ./email/template:/app/template
+    command: [ "./worker" ]
+
+networks:
+  outbox:
