@@ -23,11 +23,37 @@ func CreateJetStreamContext(conn *nats.Conn) (nats.JetStreamContext, error) {
 
 	// Create a stream, e.g. "OUTBOX"
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     "OUTBOX",
-		Subjects: []string{"outbox.*"},
+		Name:      "OUTBOX",
+		Subjects:  []string{"outbox.*"},
+		Retention: nats.WorkQueuePolicy,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	_, err = js.ConsumerInfo("OUTBOX", "WORKER")
+	if err != nil {
+		// Means consumer doesn't exist, so let's create it (push-based).
+		_, err = js.AddConsumer("OUTBOX", &nats.ConsumerConfig{
+			Durable:        "WORKER",
+			AckPolicy:      nats.AckExplicitPolicy,
+			MaxDeliver:     5,
+			DeliverSubject: "push.outbox", // must include for push mode
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Consumer already exists, so update it (keep it push-based).
+		_, err = js.UpdateConsumer("OUTBOX", &nats.ConsumerConfig{
+			Durable:        "WORKER",
+			AckPolicy:      nats.AckExplicitPolicy,
+			MaxDeliver:     5,
+			DeliverSubject: "push.outbox", // keep the same deliver subject
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return js, nil

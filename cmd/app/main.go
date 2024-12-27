@@ -1,14 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net"
 	"outbox/config"
 	"outbox/database"
 	"outbox/notification"
+	"outbox/pb"
 	"outbox/shared"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -22,19 +24,23 @@ func main() {
 		log.Fatal("error connecting to db")
 	}
 
-	if err := db.AutoMigrate(&notification.Notification{}, &shared.OutBoxMessage{}); err != nil {
+	if err := db.AutoMigrate(&shared.OutBoxMessage{}); err != nil {
 		log.Fatal("migrate error - ", err)
 	}
 
-	notificationHandler := notification.Handler{DB: db}
+	grpcServer := grpc.NewServer()
 
-	app := fiber.New()
+	svc := &notification.Service{DB: db}
+	pb.RegisterNotificationServiceServer(grpcServer, svc)
 
-	app.Use(logger.New())
+	address := fmt.Sprintf(":%d", config.Port)
+	lis, err := net.Listen("tcp", address)
+	if err != nil {
+		log.Fatalf("failed to listen on port %d: %v", config.Port, err)
+	}
+	log.Printf("Starting gRPC server on :%d...\n", config.Port)
 
-	app.Post("/notifications", notificationHandler.Add)
-
-	if err := app.Listen(":3000"); err != nil {
-		log.Fatal(err)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve gRPC: %v", err)
 	}
 }

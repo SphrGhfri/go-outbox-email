@@ -3,7 +3,7 @@ services:
   db:
     image: postgres:14.8
     environment:
-      POSTGRES_DB: outbox-demo
+      POSTGRES_DB: outbox-nats
       POSTGRES_USER: root
       POSTGRES_PASSWORD: "123456"
     ports:

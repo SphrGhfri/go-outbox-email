@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 type OutBoxMessage struct {
-	ID          string         `gorm:"id" json:"id"`
-	EventName   string         `gorm:"event_name" json:"event_name"`
-	Payload     datatypes.JSON `gorm:"payload" json:"payload"`
-	IsProcessed bool           `gorm:"is_processed" json:"is_processed"`
+	ID          string    `gorm:"id" json:"id"`
+	EventName   string    `gorm:"event_name" json:"event_name"`
+	UserID      uuid.UUID `gorm:"user_id" json:"user_id"`
+	Name        string    `gorm:"name" json:"name"`
+	Email       string    `gorm:"email" json:"email"`
+	Message     string    `gorm:"message" json:"message"`
+	IsProcessed bool      `gorm:"is_processed" json:"is_processed"`
 }
 
 type OutboxProcesser struct {

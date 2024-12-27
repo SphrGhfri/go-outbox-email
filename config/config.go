@@ -10,9 +10,7 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Host string
 	Port int
-	Env  string
 
 	DBUsername string
 	DBPassword string
@@ -36,9 +34,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	// Create Config instance from environment variables
 	cfg := &Config{
-		Host: getEnv("HOST", "0.0.0.0"),
-		Port: getEnvAsInt("PORT", 8080),
-		Env:  getEnv("ENV", "development"),
+		Port: getEnvAsInt("PORT", 50051),
 
 		DBUsername: getEnv("DB_USER", "username"),
 		DBPassword: getEnv("DB_PASS", "password123"),

@@ -1,20 +1,20 @@
 services:
 
   app:
-    image: outbox-demo
-    container_name: outbox-demo-app
+    image: outbox-nats
+    container_name: outbox-nats-app
     restart: on-failure
     build:
       context: .
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "50051:50051"
     command: ["./app"]
 
   relay:
-    image: outbox-demo
-    container_name: outbox-demo-relay
+    image: outbox-nats
+    container_name: outbox-nats-relay
     restart: on-failure
     build:
       context: .
@@ -23,8 +23,8 @@ services:
     command: [ "./relay" ]
 
   worker:
-    image: outbox-demo
-    container_name: outbox-demo-worker
+    image: outbox-nats
+    container_name: outbox-nats-worker
     restart: on-failure
     build:
       context: .

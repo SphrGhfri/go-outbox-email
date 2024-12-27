@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/nats-io/nats.go"
-	"gorm.io/datatypes"
 
 	"outbox/config"
 	"outbox/email"
@@ -16,9 +15,11 @@ import (
 )
 
 type OutboxEvent struct {
-	ID        string         `json:"id"`
-	EventName string         `json:"event_name"`
-	Payload   datatypes.JSON `json:"payload"`
+	// ID        string `json:"id"`
+	EventName string `json:"event_name"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	Message   string `json:"message"`
 }
 
 func main() {
@@ -53,30 +54,19 @@ func main() {
 			_ = msg.Nak() // Negative-ack
 			return
 		}
-		log.Printf("Handling [%s] - Payload: '%s'", evt.EventName, evt.Payload)
+		log.Printf("Sending Email [%s] - Emal: '%s'", evt.EventName, evt.Email)
 
-		// (A) Unmarshal the payload so we can get the actual 'Email' field, etc.
-		var p struct {
-			Email string `json:"email"`
-			Name  string `json:"name"` // or other fields if you need
-		}
-		if err := json.Unmarshal(evt.Payload, &p); err != nil {
-			log.Println("Failed to parse payload:", err)
-			_ = msg.Nak()
-			return
-		}
-
-		// (B) Prepare data for the template
+		// (A) Prepare data for the template
 		emailData := map[string]interface{}{
-			"Test": "Hello From Gholi",
-			"Name": p.Name,
+			"Message": evt.Message,
+			"Name":    evt.Name,
 		}
 
-		// (C) Send the email via emailService
+		// (B) Send the email via emailService
 		if err := emailService.SendEmail(
-			[]string{p.Email},
+			[]string{evt.Email},
 			"Hello From Gholi",
-			"test.html",
+			"notif.html",
 			emailData,
 		); err != nil {
 			log.Println("Failed to send email:", err)
@@ -84,7 +74,7 @@ func main() {
 			return
 		}
 
-		log.Printf("Email sent successfully to %s\n", p.Email)
+		log.Printf("Email sent successfully to %s for event %s\n", evt.Email, evt.EventName)
 
 		// If success, Ack the message
 		_ = msg.Ack()
